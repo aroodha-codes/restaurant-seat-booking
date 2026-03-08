@@ -223,7 +223,7 @@ async def create_payment_checkout(payment_req: PaymentRequest, request: Request)
     amount = 500.00
     currency = "inr"
     
-    success_url = f"{payment_req.origin_url}/payment-success?session_id={{{{CHECKOUT_SESSION_ID}}}}"
+    success_url = f"{payment_req.origin_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{payment_req.origin_url}/"
     
     stripe_api_key = os.environ.get('STRIPE_API_KEY')
