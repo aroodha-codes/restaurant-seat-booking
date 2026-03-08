@@ -61,6 +61,14 @@
     "build": "craco build",
     "test": "craco test"
   },
+   "scripts": {
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test"
+  },
+  "overrides": {
+    "ajv": "^8.0.0"
+  },
   "browserslist": {
     "production": [
       ">0.2%",
