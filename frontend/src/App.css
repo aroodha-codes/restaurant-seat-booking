@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Manrope:wght@300;400;500&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0F1F1C;
+  color: #F5E6D3;
+  overflow-x: hidden;
+}
+
+.App {
+  min-height: 100vh;
+  background-color: #0F1F1C;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMGYxZjFjIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDBoNHY0SDB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDUiPjwvcGF0aD4KPC9zdmc+');
+}
+
+.font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-body {
+  font-family: 'Manrope', sans-serif;
+}
+
+.text-cream {
+  color: #F5E6D3;
+}
+
+.text-sage {
+  color: #A8B5B2;
+}
+
+.text-gold {
+  color: #D4AF37;
+}
+
+.bg-forest {
+  background-color: #0F1F1C;
+}
+
+.bg-forest-light {
+  background-color: #142824;
+}
+
+.bg-gold {
+  background-color: #D4AF37;
+}
+
+.bg-gold-dark {
+  background-color: #C5A028;
+}
+
+.text-forest {
+  color: #0F1F1C;
+}
+
+.border-forest-light {
+  border-color: #2A403C;
+}
+
+.border-gold {
+  border-color: #D4AF37;
+}
+
+.hover\:border-gold:hover {
+  border-color: #D4AF37;
+}
+
+.hover\:text-gold:hover {
+  color: #D4AF37;
+}
+
+.hover\:bg-gold-dark:hover {
+  background-color: #C5A028;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F1F1C;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D4AF37;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C5A028;
+}
+
+::selection {
+  background-color: #D4AF37;
+  color: #0F1F1C;
+}
