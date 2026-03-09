@@ -4,11 +4,11 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import stripe
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict
 from datetime import datetime, timezone
-import stripe
 import hashlib
 
 ROOT_DIR = Path(__file__).parent
@@ -83,6 +83,35 @@ class PaymentRequest(BaseModel):
 class BookingUpdate(BaseModel):
     status: Optional[str] = None
 
+# --- Order Models ---
+class OrderItem(BaseModel):
+    id: str
+    name: str
+    price: float
+    qty: int
+
+class OrderCreate(BaseModel):
+    customer_name: str
+    customer_phone: str
+    items: List[OrderItem]
+    total: float
+    notes: Optional[str] = None
+
+class Order(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    customer_name: str
+    customer_phone: str
+    items: List[dict]
+    total: float
+    notes: Optional[str] = None
+    status: str = "pending"
+    created_at: str
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+
+
 @api_router.get("/")
 async def root():
     return {"message": "Lumière Bistro API"}
@@ -99,23 +128,22 @@ async def create_booking(booking: BookingCreate):
         raise HTTPException(status_code=400, detail="Time is required")
     if booking.guests < 1 or booking.guests > 50:
         raise HTTPException(status_code=400, detail="Number of guests must be between 1 and 50")
-    
+
     try:
         booking_date = datetime.strptime(booking.date, '%Y-%m-%d').date()
         if booking_date < datetime.now(timezone.utc).date():
             raise HTTPException(status_code=400, detail="Booking date cannot be in the past")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    
+
     booking_dict = booking.model_dump()
     booking_dict['id'] = f"BK{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     booking_dict['created_at'] = datetime.now(timezone.utc).isoformat()
     booking_dict['status'] = 'pending'
     booking_dict['payment_status'] = 'pending'
     booking_dict['payment_session_id'] = None
-    
+
     await db.bookings.insert_one(booking_dict)
-    
     result = await db.bookings.find_one({"id": booking_dict['id']}, {"_id": 0})
     return result
 
@@ -129,11 +157,9 @@ async def update_booking(booking_id: str, update: BookingUpdate):
     update_dict = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_dict:
         raise HTTPException(status_code=400, detail="No fields to update")
-    
     result = await db.bookings.update_one({"id": booking_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Booking not found")
-    
     updated_booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     return updated_booking
 
@@ -211,65 +237,39 @@ async def admin_login(credentials: AdminLogin):
         return {"success": True, "message": "Login successful"}
     raise HTTPException(status_code=401, detail="Invalid password")
 
-@api_router.post("/payment/create-checkout")
-async def create_payment_checkout(payment_req: PaymentRequest, request: Request):
-    booking = await db.bookings.find_one({"id": payment_req.booking_id}, {"_id": 0})
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-    
-    if booking.get('payment_status') == 'paid':
-        raise HTTPException(status_code=400, detail="Booking already paid")
-    
-    amount = 500.00
-    currency = "inr"
-    
-    success_url = f"{payment_req.origin_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{payment_req.origin_url}/"
-    
-    stripe_api_key = os.environ.get('STRIPE_API_KEY')
-    if not stripe_api_key:
-        raise HTTPException(status_code=500, detail="Stripe API key not configured")
-    
-    stripe.api_key = stripe_api_key
-    metadata = {
-        "booking_id": payment_req.booking_id,
-        "customer_name": booking['name'],
-        "booking_date": booking['date']
-    }
-    
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        line_items=[{
-            "price_data": {
-                "currency": currency,
-                "product_data": {"name": "Restaurant Booking Deposit"},
-                "unit_amount": int(amount * 100),
-            },
-            "quantity": 1,
-        }],
-        mode="payment",
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata=metadata
+# --- Orders Endpoints ---
+@api_router.post("/orders")
+async def create_order(order: OrderCreate):
+    order_dict = order.model_dump()
+    order_dict['id'] = f"ORD{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')[:18]}"
+    order_dict['created_at'] = datetime.now(timezone.utc).isoformat()
+    order_dict['status'] = 'pending'
+    await db.orders.insert_one(order_dict)
+    result = await db.orders.find_one({"id": order_dict['id']}, {"_id": 0})
+    return result
+
+@api_router.get("/orders")
+async def get_orders():
+    orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return orders
+
+@api_router.patch("/orders/{order_id}")
+async def update_order_status(order_id: str, update: OrderStatusUpdate):
+    result = await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {"status": update.status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-    
-    payment_transaction = {
-        "session_id": session.id,
-        "booking_id": payment_req.booking_id,
-        "amount": amount,
-        "currency": currency,
-        "payment_status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "metadata": metadata
-    }
-    await db.payment_transactions.insert_one(payment_transaction)
-    
-    await db.bookings.update_one(
-        {"id": payment_req.booking_id},
-        {"$set": {"payment_session_id": session.id}}
-    )
-    
-    return {"url": session.url, "session_id": session.id}
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    updated = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/orders/{order_id}")
+async def delete_order(order_id: str):
+    result = await db.orders.delete_one({"id": order_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"message": "Order deleted"}
 
 @api_router.get("/config")
 async def get_config():
@@ -285,15 +285,11 @@ async def get_config():
 async def verify_upi_payment(request: Dict):
     booking_id = request.get('booking_id')
     utr_number = request.get('utr_number', '')
-    
     if not booking_id:
         raise HTTPException(status_code=400, detail="Booking ID is required")
-    
     booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
-    
-    # Store UPI payment info
     upi_payment = {
         "booking_id": booking_id,
         "utr_number": utr_number,
@@ -304,104 +300,84 @@ async def verify_upi_payment(request: Dict):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.upi_payments.insert_one(upi_payment)
-    
-    # Update booking status
     await db.bookings.update_one(
         {"id": booking_id},
         {"$set": {"payment_status": "pending_verification", "payment_method": "UPI", "utr_number": utr_number}}
     )
-    
-    return {
-        "success": True,
-        "message": "UPI payment recorded. Admin will verify and confirm your booking shortly.",
-        "booking_id": booking_id
-    }
+    return {"success": True, "message": "UPI payment recorded. Admin will verify and confirm your booking shortly.", "booking_id": booking_id}
 
 @api_router.post("/admin/upi/confirm")
 async def confirm_upi_payment(request: Dict):
     booking_id = request.get('booking_id')
-    
     if not booking_id:
         raise HTTPException(status_code=400, detail="Booking ID is required")
-    
-    # Update booking and payment status
-    await db.bookings.update_one(
-        {"id": booking_id},
-        {"$set": {"payment_status": "paid", "status": "confirmed"}}
-    )
-    
-    await db.upi_payments.update_one(
-        {"booking_id": booking_id},
-        {"$set": {"status": "verified", "verified_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    
+    await db.bookings.update_one({"id": booking_id}, {"$set": {"payment_status": "paid", "status": "confirmed"}})
+    await db.upi_payments.update_one({"booking_id": booking_id}, {"$set": {"status": "verified", "verified_at": datetime.now(timezone.utc).isoformat()}})
     return {"success": True, "message": "Payment confirmed"}
+
+@api_router.post("/payment/create-checkout")
+async def create_payment_checkout(payment_req: PaymentRequest, request: Request):
+    booking = await db.bookings.find_one({"id": payment_req.booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.get('payment_status') == 'paid':
+        raise HTTPException(status_code=400, detail="Booking already paid")
+    amount = 500.00
+    currency = "inr"
+    success_url = f"{payment_req.origin_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{payment_req.origin_url}/"
+    stripe_api_key = os.environ.get('STRIPE_API_KEY')
+    if not stripe_api_key:
+        raise HTTPException(status_code=500, detail="Stripe API key not configured")
+    stripe.api_key = stripe_api_key
+    metadata = {"booking_id": payment_req.booking_id, "customer_name": booking['name'], "booking_date": booking['date']}
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{"price_data": {"currency": currency, "product_data": {"name": "Restaurant Booking Deposit"}, "unit_amount": int(amount * 100)}, "quantity": 1}],
+        mode="payment",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=metadata
+    )
+    payment_transaction = {"session_id": session.id, "booking_id": payment_req.booking_id, "amount": amount, "currency": currency, "payment_status": "pending", "created_at": datetime.now(timezone.utc).isoformat(), "metadata": metadata}
+    await db.payment_transactions.insert_one(payment_transaction)
+    await db.bookings.update_one({"id": payment_req.booking_id}, {"$set": {"payment_session_id": session.id}})
+    return {"url": session.url, "session_id": session.id}
 
 @api_router.get("/payment/status/{session_id}")
 async def get_payment_status(session_id: str, request: Request):
     stripe_api_key = os.environ.get('STRIPE_API_KEY')
     if not stripe_api_key:
         raise HTTPException(status_code=500, detail="Stripe API key not configured")
-    
     stripe.api_key = stripe_api_key
     session_obj = stripe.checkout.Session.retrieve(session_id)
-    
     transaction = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
     if transaction and transaction['payment_status'] != 'paid' and session_obj.payment_status == 'paid':
-        await db.payment_transactions.update_one(
-            {"session_id": session_id},
-            {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}}
-        )
-        
-        await db.bookings.update_one(
-            {"id": transaction['booking_id']},
-            {"$set": {"payment_status": "paid", "status": "confirmed"}}
-        )
-    
-    return {
-        "status": session_obj.status,
-        "payment_status": session_obj.payment_status,
-        "amount_total": session_obj.amount_total,
-        "currency": session_obj.currency
-    }
+        await db.payment_transactions.update_one({"session_id": session_id}, {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}})
+        await db.bookings.update_one({"id": transaction['booking_id']}, {"$set": {"payment_status": "paid", "status": "confirmed"}})
+    return {"status": session_obj.status, "payment_status": session_obj.payment_status, "amount_total": session_obj.amount_total, "currency": session_obj.currency}
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     body = await request.body()
     signature = request.headers.get("Stripe-Signature")
-    
     stripe_api_key = os.environ.get('STRIPE_API_KEY')
     webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
     if not stripe_api_key:
         raise HTTPException(status_code=500, detail="Stripe API key not configured")
-    
     stripe.api_key = stripe_api_key
-    
     try:
-        event = stripe.Webhook.construct_event(body, signature, webhook_secret) if webhook_secret else stripe.Event.construct_from(
-            stripe.util.convert_to_stripe_object(
-                stripe.util.json.loads(body), stripe_api_key, None
-            ), stripe_api_key
-        )
-        
+        event = stripe.Webhook.construct_event(body, signature, webhook_secret) if webhook_secret else stripe.Event.construct_from(stripe.util.convert_to_stripe_object(stripe.util.json.loads(body), stripe_api_key, None), stripe_api_key)
         if event['type'] == 'checkout.session.completed':
             session_obj = event['data']['object']
             if session_obj.get('payment_status') == 'paid':
                 session_id = session_obj['id']
                 transaction = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
                 if transaction and transaction['payment_status'] != 'paid':
-                    await db.payment_transactions.update_one(
-                        {"session_id": session_id},
-                        {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}}
-                    )
-                    
+                    await db.payment_transactions.update_one({"session_id": session_id}, {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}})
                     booking_id = session_obj.get('metadata', {}).get('booking_id')
                     if booking_id:
-                        await db.bookings.update_one(
-                            {"id": booking_id},
-                            {"$set": {"payment_status": "paid", "status": "confirmed"}}
-                        )
-        
+                        await db.bookings.update_one({"id": booking_id}, {"$set": {"payment_status": "paid", "status": "confirmed"}})
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -416,10 +392,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
