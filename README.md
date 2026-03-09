@@ -1,12 +1,31 @@
-# Lumière Bistro — Restaurant Seat Booking
+# Lumière Bistro — Restaurant Management System
 
-A full-stack restaurant booking website with seat reservations, menu display, reviews, and Stripe + UPI payment support.
+A full-stack restaurant management web app with seat reservations, WhatsApp food ordering, menu management, reviews, UPI payment support, and an admin dashboard.
+
+🔗 **Live Demo:** [lumiere-bistro.netlify.app](https://lumiere-bistro.netlify.app)
+
+---
+
+## Features
+
+- 🍽️ **Food Ordering via WhatsApp** — customers add items to cart and send order directly to restaurant WhatsApp
+- 📅 **Table Reservations** — book seats with date, time, and guest count
+- 💳 **UPI Payments** — deposit payment for bookings via UPI
+- 📋 **Admin Dashboard** — manage orders, bookings, and menu items in real time
+- ⭐ **Reviews** — display customer reviews
+- 📱 **Fully Responsive** — works on mobile and desktop
+
+---
 
 ## Tech Stack
 
-- **Frontend**: React 19, Tailwind CSS, shadcn/ui, React Router
-- **Backend**: FastAPI (Python), MongoDB (Motor async driver)
-- **Payments**: Stripe Checkout + UPI
+| Layer | Tech |
+|---|---|
+| Frontend | React 19, Tailwind CSS, shadcn/ui, Framer Motion |
+| Backend | FastAPI (Python), Motor (async MongoDB driver) |
+| Database | MongoDB Atlas |
+| Payments | UPI + Stripe Checkout |
+| Deployment | Netlify (frontend) + Render (backend) |
 
 ---
 
@@ -14,14 +33,19 @@ A full-stack restaurant booking website with seat reservations, menu display, re
 
 ```
 ├── backend/
-│   ├── server.py          # FastAPI app
+│   ├── server.py          # FastAPI app (bookings, orders, menu, reviews, payments)
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/         # HomePage, AdminDashboard, PaymentSuccess
-│   │   ├── components/    # BookingDialog, UI components
+│   │   ├── pages/
+│   │   │   ├── HomePage.js        # Menu, cart, WhatsApp ordering, booking
+│   │   │   ├── AdminDashboard.js  # Orders, bookings, menu management
+│   │   │   └── PaymentSuccess.js  # Stripe success page
+│   │   ├── components/
+│   │   │   └── BookingDialog.js   # Table reservation dialog
 │   │   └── App.js
+│   ├── netlify.toml
 │   └── .env.example
 ```
 
@@ -44,103 +68,110 @@ uvicorn server:app --reload --port 8001
 
 ```bash
 cd frontend
-cp .env.example .env           # Set REACT_APP_BACKEND_URL
-yarn install
-yarn start
+cp .env.example .env           # Set REACT_APP_BACKEND_URL=http://localhost:8001
+npm install
+npm start
 ```
 
 ---
 
-## Deployment Options
+## Deployment
 
-### Option 1 — Railway (Easiest)
-
-**Backend:**
-1. [railway.app](https://railway.app) → New Project → Deploy from GitHub
+### Backend → Render (Web Service)
+1. New Web Service → connect GitHub repo
 2. Root directory: `backend/`
-3. Start command: `uvicorn server:app --host 0.0.0.0 --port $PORT`
-4. Add a MongoDB plugin → copy the `MONGO_URL`
-5. Add all env vars from `.env.example`
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `uvicorn server:app --host 0.0.0.0 --port $PORT`
+5. Add environment variables (see below)
 
-**Frontend:**
-1. New Service → same repo, root directory `frontend/`
-2. Build command: `yarn build`, publish: `build/`
-3. Set `REACT_APP_BACKEND_URL` to your backend Railway URL
-
-### Option 2 — Render
-
-**Backend (Web Service):**
-- Root: `backend/` | Build: `pip install -r requirements.txt`
-- Start: `uvicorn server:app --host 0.0.0.0 --port $PORT`
-- Add env vars
-
-**Frontend (Static Site):**
-- Root: `frontend/` | Build: `yarn build` | Publish: `build`
-- Set `REACT_APP_BACKEND_URL`
-
-### Option 3 — Vercel (Frontend) + Render (Backend)
-
-Frontend auto-deploys on Vercel (detects Create React App). Add `REACT_APP_BACKEND_URL` in Vercel settings.
-
-### Option 4 — Docker / VPS
-
-Add a `Dockerfile` to `backend/`:
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
-```
-
-Add a `Dockerfile` to `frontend/`:
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install
-COPY . .
-RUN yarn build
-FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-EXPOSE 80
-```
-
----
-
-## Stripe Webhook Setup
-
-After deploying, register in [Stripe Dashboard](https://dashboard.stripe.com/webhooks):
-- Endpoint: `https://your-backend.com/api/webhook/stripe`
-- Event: `checkout.session.completed`
-- Copy signing secret → set as `STRIPE_WEBHOOK_SECRET`
+### Frontend → Netlify (Static Site)
+1. New site → connect GitHub repo
+2. Base directory: `frontend/`
+3. Build command: `npm run build`
+4. Publish directory: `frontend/build`
+5. Add `REACT_APP_BACKEND_URL` environment variable
 
 ---
 
 ## Environment Variables
 
 ### Backend
+
 | Variable | Description |
 |---|---|
 | `MONGO_URL` | MongoDB connection string |
 | `DB_NAME` | Database name |
 | `STRIPE_API_KEY` | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `CORS_ORIGINS` | Allowed origins (comma-separated) |
+| `CORS_ORIGINS` | Allowed frontend origins (comma-separated) |
 | `RESTAURANT_NAME` | Restaurant display name |
-| `RESTAURANT_WHATSAPP` | WhatsApp number with country code |
+| `RESTAURANT_WHATSAPP` | WhatsApp number with country code (e.g. `919876543210`) |
 | `UPI_ID` | UPI payment ID |
 
 ### Frontend
+
 | Variable | Description |
 |---|---|
 | `REACT_APP_BACKEND_URL` | Full URL of deployed backend |
 
 ---
 
-## Admin Access
+## API Endpoints
 
-Visit `/admin`. Default password: `admin123`
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/menu` | Get all menu items |
+| POST | `/api/menu` | Add menu item (admin) |
+| GET | `/api/bookings` | Get all bookings (admin) |
+| POST | `/api/bookings` | Create a booking |
+| GET | `/api/orders` | Get all orders (admin) |
+| POST | `/api/orders` | Save a WhatsApp order |
+| PATCH | `/api/orders/{id}` | Update order status |
+| GET | `/api/reviews` | Get all reviews |
+| POST | `/api/admin/login` | Admin authentication |
+| GET | `/api/config` | Get restaurant config |
+
+---
+
+## Admin Dashboard
+
+Visit `/admin` — Default password: `admin123`
 
 > ⚠️ Change `ADMIN_PASSWORD_HASH` in `server.py` before going to production.
+
+**Admin features:**
+- 📦 **Orders tab** — view WhatsApp orders, confirm / mark ready / cancel
+- 📅 **Bookings tab** — manage reservations, verify UPI payments
+- 🍴 **Menu tab** — add, edit, delete menu items
+
+---
+
+## WhatsApp Ordering Flow
+
+```
+Customer browses menu
+        ↓
+Adds items to cart (with quantity controls)
+        ↓
+Enters name + phone number
+        ↓
+Clicks "Order via WhatsApp"
+        ↓
+Order saved to MongoDB
+        ↓
+WhatsApp opens with pre-filled order message
+        ↓
+Restaurant receives and confirms the order
+```
+
+---
+
+## Screenshots
+
+> Homepage, menu with cart, admin orders dashboard
+
+---
+
+## License
+
+MIT
