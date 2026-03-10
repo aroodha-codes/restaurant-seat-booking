@@ -1,70 +1,177 @@
-# Getting Started with Create React App
+# Lumière Bistro — Restaurant Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack restaurant management web app with table reservations, WhatsApp food ordering, menu management, customer reviews, UPI payments, and a complete admin dashboard.
 
-## Available Scripts
+🔗 **Live Demo:** [lumiere-bistro.netlify.app](https://lumiere-bistro.netlify.app)
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- 🍽️ **WhatsApp Food Ordering** — cart system with quantity controls, order saved to DB and sent to restaurant WhatsApp
+- 📅 **Table Reservations** — book seats with date, time, guest count and special requests
+- 💳 **UPI Payments** — deposit payment for bookings with admin verification
+- 📋 **Admin Dashboard** — manage orders (confirm/ready/cancel), bookings, and menu in real time
+- ⭐ **Customer Reviews** — display and manage reviews
+- 📱 **Fully Responsive** — works on mobile and desktop
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## Tech Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| Layer | Tech |
+|---|---|
+| Frontend | React 19, Tailwind CSS, shadcn/ui, Framer Motion, React Router |
+| Backend | FastAPI (Python 3.11), Motor (async MongoDB) |
+| Database | MongoDB Atlas |
+| Payments | UPI + Stripe Checkout |
+| Deployment | Netlify (frontend) + Render (backend) |
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Project Structure
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+├── backend/
+│   ├── server.py          # FastAPI app
+│   ├── requirements.txt
+│   ├── runtime.txt        # python-3.11.0
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── HomePage.js        # Menu, cart, WhatsApp ordering
+│   │   │   ├── AdminDashboard.js  # Orders, bookings, menu management
+│   │   │   └── PaymentSuccess.js
+│   │   ├── components/
+│   │   │   └── BookingDialog.js
+│   │   └── App.js
+│   ├── netlify.toml
+│   └── .env.example
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## Deployment
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Backend → Render (Web Service)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. New Web Service → connect GitHub repo
+2. Root directory: `backend/`
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `uvicorn server:app --host 0.0.0.0 --port $PORT`
+5. Add environment variables:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+| Variable | Value |
+|---|---|
+| `MONGO_URL` | `mongodb+srv://user:pass@cluster.mongodb.net/?appName=Cluster0` |
+| `DB_NAME` | `restaurant_db` |
+| `CORS_ORIGINS` | `https://your-site.netlify.app` |
+| `RESTAURANT_NAME` | `Lumière Bistro` |
+| `RESTAURANT_WHATSAPP` | `919876543210` |
+| `UPI_ID` | `yourupi@bank` |
+| `STRIPE_API_KEY` | `sk_test_...` (optional) |
+| `STRIPE_WEBHOOK_SECRET` | (optional) |
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Frontend → Netlify (Static Site)
 
-## Learn More
+1. New site → connect GitHub repo
+2. Base directory: `frontend/`
+3. Build command: `npm run build`
+4. Publish directory: `frontend/build`
+5. Add environment variable:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| Variable | Value |
+|---|---|
+| `REACT_APP_BACKEND_URL` | `https://your-backend.onrender.com` |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## Local Development
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate    # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env        # fill in values
+uvicorn server:app --reload --port 8001
+```
 
-### Analyzing the Bundle Size
+### Frontend
+```bash
+cd frontend
+cp .env.example .env        # set REACT_APP_BACKEND_URL=http://localhost:8001
+npm install --legacy-peer-deps
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## API Endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/menu` | Get all menu items |
+| POST | `/api/menu` | Add menu item |
+| PUT | `/api/menu/{id}` | Update menu item |
+| DELETE | `/api/menu/{id}` | Delete menu item |
+| GET | `/api/bookings` | Get all bookings |
+| POST | `/api/bookings` | Create booking |
+| PATCH | `/api/bookings/{id}` | Update booking status |
+| DELETE | `/api/bookings/{id}` | Delete booking |
+| GET | `/api/orders` | Get all orders |
+| POST | `/api/orders` | Save WhatsApp order |
+| PATCH | `/api/orders/{id}` | Update order status |
+| DELETE | `/api/orders/{id}` | Delete order |
+| GET | `/api/reviews` | Get all reviews |
+| POST | `/api/admin/login` | Admin authentication |
+| GET | `/api/config` | Restaurant config |
+| POST | `/api/payment/upi/verify` | Submit UPI payment |
+| POST | `/api/admin/upi/confirm` | Confirm UPI payment |
 
-### Advanced Configuration
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Admin Dashboard
 
-### Deployment
+Visit `/admin` — Default password: `admin123`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+> ⚠️ Change `ADMIN_PASSWORD_HASH` in `server.py` before going to production.
 
-### `npm run build` fails to minify
+**Tabs:**
+- 📦 **Orders** — view WhatsApp orders, confirm / mark ready / cancel (shows pending count badge)
+- 📅 **Bookings** — manage reservations, verify UPI payments
+- 🍴 **Menu** — add, edit, delete menu items
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+## WhatsApp Ordering Flow
+
+```
+Customer adds items to cart
+        ↓
+Enters name + phone number
+        ↓
+Clicks "Order via WhatsApp"
+        ↓
+Order saved to MongoDB
+        ↓
+WhatsApp opens with pre-filled message
+        ↓
+Restaurant confirms the order in admin dashboard
+```
+
+---
+
+## Notes
+
+- Render free tier sleeps after inactivity — first request may take 30–60s to wake up
+- Stripe is invite-only in India — UPI is the primary payment method
+- MongoDB Atlas free tier (M0) is sufficient for this app
+
+---
+
+## License
+
+MIT
