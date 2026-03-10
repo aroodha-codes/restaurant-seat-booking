@@ -1,10 +1,11 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient # type: ignore
+from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import ssl
 import logging
-import stripe # type: ignore
+import stripe
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict
@@ -14,9 +15,12 @@ import hashlib
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB client - tlsAllowInvalidCertificates fixes SSL handshake on Render
+# MongoDB client with custom SSL context to fix TLS issues on Render
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url, tlsAllowInvalidCertificates=True)
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+client = AsyncIOMotorClient(mongo_url, tls=True, tlsCAFile=None, ssl_context=ssl_context)
 db = client[os.environ['DB_NAME']]
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
