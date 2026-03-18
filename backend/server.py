@@ -400,7 +400,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def health_root():
     return {"status": "ok", "service": "restaurant-backend"}
 

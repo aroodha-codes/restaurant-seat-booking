@@ -10,7 +10,6 @@ const HomePage = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [showBooking, setShowBooking] = useState(false);
-  const [hoveredDish, setHoveredDish] = useState(null);
   const [scrollY, setScrollY] = useState(0);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
@@ -18,6 +17,8 @@ const HomePage = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('919876543210');
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('');
+  const [menuSearch, setMenuSearch] = useState('');
 
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 300]);
@@ -36,6 +37,11 @@ const HomePage = () => {
     try {
       const response = await axios.get(`${API}/menu`);
       setMenuItems(response.data);
+
+      if (response.data.length > 0) {
+        const firstCategory = response.data[0].category;
+        setActiveCategory((prev) => prev || firstCategory);
+      }
     } catch (error) {
       console.error('Error fetching menu:', error);
     }
@@ -66,6 +72,15 @@ const HomePage = () => {
     acc[item.category].push(item);
     return acc;
   }, {});
+
+  const categoryEntries = Object.entries(groupedMenu);
+  const availableCategories = categoryEntries.map(([category]) => category);
+  const selectedCategory = activeCategory || availableCategories[0] || '';
+  const visibleItems = (groupedMenu[selectedCategory] || []).filter((item) => {
+    const search = menuSearch.trim().toLowerCase();
+    if (!search) return true;
+    return (`${item.name} ${item.description}`).toLowerCase().includes(search);
+  });
 
   // Cart functions
   const addToCart = (item) => {
@@ -271,103 +286,127 @@ const HomePage = () => {
       </section>
 
       {/* Menu Section */}
-      <section id="menu" className="py-20 px-6 md:px-12 bg-forest">
+      <section id="menu" className="py-20 px-6 md:px-12 bg-forest relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(212,175,55,0.22), transparent 40%), radial-gradient(circle at 80% 0%, rgba(245,230,211,0.09), transparent 45%)' }} />
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-4"
+            className="text-center mb-8"
           >
-            <h2 className="text-4xl md:text-5xl font-serif text-cream mb-4 tracking-tight">Our Menu</h2>
-            <p className="text-sage font-body tracking-wide">Crafted with passion, served with elegance</p>
+            <h2 className="text-4xl md:text-5xl font-serif text-cream mb-4 tracking-tight">The House Menu</h2>
+            <p className="text-sage font-body tracking-wide">Designed like a classic table menu, easy to browse and quick to order</p>
           </motion.div>
 
-          {/* Order via WhatsApp CTA */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="flex justify-center mb-12"
+            className="bg-[#f4e8cf] text-[#2e2012] border border-[#e3c788] rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.28)] relative z-10 overflow-hidden"
           >
-            <div className="bg-forest-light border border-gold/30 rounded-md px-6 py-3 flex items-center gap-3">
-              <MessageCircle size={18} className="text-gold" />
-              <p className="text-sage text-sm font-body">Add items to cart and order via WhatsApp instantly</p>
-            </div>
-          </motion.div>
+            <div className="border-b border-[#d8ba78] bg-gradient-to-r from-[#f2dfb4] via-[#f7ebcc] to-[#f0ddb0] px-4 md:px-8 py-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <p className="font-body text-xs uppercase tracking-[0.28em] text-[#7d5a2d]">Lumiere Bistro</p>
+                  <h3 className="font-serif text-2xl md:text-3xl tracking-tight">A La Carte</h3>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <input
+                    type="text"
+                    placeholder="Search dishes"
+                    value={menuSearch}
+                    onChange={(e) => setMenuSearch(e.target.value)}
+                    className="w-full sm:w-56 bg-[#fff8e8] border border-[#d8bb7e] rounded-md px-3 py-2 text-sm font-body focus:outline-none focus:ring-2 focus:ring-[#c19a4e]"
+                  />
+                  <div className="bg-[#fff8e8] border border-[#d8bb7e] rounded-md px-3 py-2 text-xs font-body text-[#6f5229]">
+                    {cartCount} item{cartCount === 1 ? '' : 's'} in cart
+                  </div>
+                </div>
+              </div>
 
-          {Object.entries(groupedMenu).map(([category, items], idx) => (
-            <div key={category} className="mb-16">
-              <h3 className="text-3xl font-serif text-gold mb-8 tracking-tight border-b border-forest-light pb-4">{category}</h3>
-              <div className="space-y-6">
-                {items.map((item, itemIdx) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: itemIdx * 0.1, duration: 0.6 }}
-                    onMouseEnter={() => setHoveredDish(item.id)}
-                    onMouseLeave={() => setHoveredDish(null)}
-                    className="grid md:grid-cols-2 gap-8 items-center group"
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                {availableCategories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setActiveCategory(category)}
+                    className={`px-4 py-2 rounded-full text-xs font-body tracking-wide whitespace-nowrap transition-all ${selectedCategory === category ? 'bg-[#402712] text-[#f7eac8] shadow-md' : 'bg-[#ead4a6] text-[#5a3a18] hover:bg-[#e1c18a]'}`}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xl font-serif text-cream tracking-tight flex items-center gap-2">
-                          {item.name}
-                          {item.is_popular && <Star size={16} className="text-gold fill-gold" />}
-                        </h4>
-                        <span className="text-gold font-body text-lg">₹{item.price.toFixed(0)}</span>
-                      </div>
-                      <p className="text-sage text-sm font-body leading-relaxed tracking-wide">{item.description}</p>
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                      {/* Add to Cart controls */}
+            <div className="px-4 md:px-8 py-6 md:py-8">
+              <div className="flex items-center justify-between border-b border-[#d7b87a] pb-3 mb-5">
+                <h4 className="font-serif text-xl md:text-2xl tracking-tight text-[#311f10]">{selectedCategory || 'Menu'}</h4>
+                <div className="text-xs font-body uppercase tracking-[0.2em] text-[#7d5a2d]">{visibleItems.length} dishes</div>
+              </div>
+
+              {visibleItems.length === 0 ? (
+                <div className="text-center py-10 text-[#6e532f] font-body">
+                  No dishes found for this search.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                  {visibleItems.map((item, itemIdx) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: itemIdx * 0.03, duration: 0.35 }}
+                      className="border-b border-dashed border-[#c7a263] pb-3"
+                    >
+                      <div className="flex items-baseline gap-2">
+                        <h5 className="font-serif text-base md:text-lg text-[#2b1b0f] flex items-center gap-2">
+                          {item.name}
+                          {item.is_popular && <span className="text-[10px] font-body uppercase tracking-widest bg-[#402712] text-[#f5dfb6] px-2 py-0.5 rounded-full">Popular</span>}
+                        </h5>
+                        <span className="flex-1 border-b border-dotted border-[#bb9655] mb-1" />
+                        <span className="font-serif text-[#7a511f]">₹{Number(item.price).toFixed(0)}</span>
+                      </div>
+                      <p className="text-[#6a4d2a] font-body text-xs md:text-sm leading-relaxed mt-1">{item.description}</p>
+
                       <div className="pt-2">
                         {getCartQty(item.id) === 0 ? (
                           <button
                             onClick={() => addToCart(item)}
-                            className="flex items-center gap-2 border border-gold text-gold hover:bg-gold hover:text-forest px-4 py-1.5 rounded-sm text-sm font-body tracking-wide transition-all duration-300"
+                            className="inline-flex items-center gap-1.5 border border-[#876231] text-[#5a3818] hover:bg-[#4b2f14] hover:text-[#f6e7c6] px-3 py-1 rounded-sm text-xs font-body tracking-wide transition-all duration-200"
                           >
-                            <Plus size={14} /> Add to Cart
+                            <Plus size={13} /> Add
                           </button>
                         ) : (
-                          <div className="flex items-center gap-3">
+                          <div className="inline-flex items-center gap-2">
                             <button
                               onClick={() => removeFromCart(item.id)}
-                              className="bg-forest-light border border-gold/40 text-gold hover:bg-gold hover:text-forest w-8 h-8 rounded-sm flex items-center justify-center transition-all duration-300"
+                              className="bg-[#e7cc9d] border border-[#b48a4c] text-[#4c2d12] hover:bg-[#d9b675] w-7 h-7 rounded-sm flex items-center justify-center transition-all duration-200"
                             >
-                              <Minus size={14} />
+                              <Minus size={12} />
                             </button>
-                            <span className="text-cream font-body text-sm w-4 text-center">{getCartQty(item.id)}</span>
+                            <span className="text-[#4c2d12] font-body text-sm w-4 text-center">{getCartQty(item.id)}</span>
                             <button
                               onClick={() => addToCart(item)}
-                              className="bg-gold text-forest hover:bg-gold-dark w-8 h-8 rounded-sm flex items-center justify-center transition-all duration-300"
+                              className="bg-[#4b2f14] text-[#f6e7c6] hover:bg-[#36210e] w-7 h-7 rounded-sm flex items-center justify-center transition-all duration-200"
                             >
-                              <Plus size={14} />
+                              <Plus size={12} />
                             </button>
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: hoveredDish === item.id ? 1 : 0 }}
-                      transition={{ duration: 0.4 }}
-                      className="hidden md:block h-48 rounded-md overflow-hidden"
-                    >
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
                     </motion.div>
-                  </motion.div>
-                ))}
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 bg-[#f8edd3] border border-[#dfc182] rounded-md px-4 py-3 flex items-center gap-3">
+                <MessageCircle size={18} className="text-[#7c5423]" />
+                <p className="text-[#6a4d2a] text-xs md:text-sm font-body">Choose items from this card-style menu, then place your order instantly on WhatsApp.</p>
               </div>
             </div>
-          ))}
+          </motion.div>
         </div>
       </section>
 
