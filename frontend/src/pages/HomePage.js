@@ -4,9 +4,7 @@ import { Calendar, Clock, Users, Phone, Mail, MapPin, Instagram, Facebook, Twitt
 import axios from 'axios';
 import { toast } from 'sonner';
 import BookingDialog from '@/components/BookingDialog';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { API } from '@/lib/api';
 
 const HomePage = () => {
   const [menuItems, setMenuItems] = useState([]);
@@ -19,6 +17,7 @@ const HomePage = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('919876543210');
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 300]);
@@ -102,7 +101,7 @@ const HomePage = () => {
     return item ? item.qty : 0;
   };
 
-  const orderViaWhatsApp = () => {
+  const orderViaWhatsApp = async () => {
     if (cart.length === 0) {
       toast.error('Your cart is empty!');
       return;
@@ -116,16 +115,44 @@ const HomePage = () => {
       return;
     }
 
-    const orderLines = cart.map(item =>
-      `• ${item.name} x${item.qty} — ₹${(item.price * item.qty).toFixed(0)}`
-    ).join('\n');
+    setIsSubmittingOrder(true);
 
-    const message = `Hello! I'd like to place a food order at Lumière Bistro.\n\n*Customer Details:*\nName: ${customerName}\nPhone: ${customerPhone}\n\n*Order:*\n${orderLines}\n\n*Total: ₹${cartTotal.toFixed(0)}*\n\nPlease confirm my order. Thank you! 🍽️`;
+    try {
+      try {
+        await axios.post(`${API}/orders`, {
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          items: cart.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            qty: item.qty,
+          })),
+          total: Number(cartTotal.toFixed(2)),
+        });
+      } catch (error) {
+        console.error('Error saving order:', error);
+        toast.error('Could not save order to dashboard. Sending WhatsApp message anyway.');
+      }
 
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
-    window.open(whatsappUrl, '_blank');
-    toast.success('Opening WhatsApp with your order!');
+      const orderLines = cart.map(item =>
+        `• ${item.name} x${item.qty} — ₹${(item.price * item.qty).toFixed(0)}`
+      ).join('\n');
+
+      const message = `Hello! I'd like to place a food order at Lumière Bistro.\n\n*Customer Details:*\nName: ${customerName}\nPhone: ${customerPhone}\n\n*Order:*\n${orderLines}\n\n*Total: ₹${cartTotal.toFixed(0)}*\n\nPlease confirm my order. Thank you! 🍽️`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+      window.open(whatsappUrl, '_blank');
+      toast.success('Opening WhatsApp with your order!');
+
+      setCart([]);
+      setCustomerName('');
+      setCustomerPhone('');
+      setShowCart(false);
+    } finally {
+      setIsSubmittingOrder(false);
+    }
   };
 
   return (
@@ -624,10 +651,11 @@ const HomePage = () => {
 
                   <button
                     onClick={orderViaWhatsApp}
+                    disabled={isSubmittingOrder}
                     className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-sm font-serif tracking-wider uppercase text-sm flex items-center justify-center gap-2 transition-all duration-300"
                   >
                     <MessageCircle size={18} />
-                    Order via WhatsApp
+                    {isSubmittingOrder ? 'Saving Order...' : 'Order via WhatsApp'}
                   </button>
                   <p className="text-sage text-xs text-center font-body">
                     Your order will be sent to our WhatsApp. We'll confirm shortly!

@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
-import ssl
 import logging
 import stripe
 from pathlib import Path
@@ -15,13 +14,19 @@ import hashlib
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB client with custom SSL context to fix TLS issues on Render
-mongo_url = os.environ['MONGO_URL']
-ssl_context = ssl.create_default_context()
-ssl_context.check_hostname = False
-ssl_context.verify_mode = ssl.CERT_NONE
-client = AsyncIOMotorClient(mongo_url, tls=True, tlsCAFile=None, ssl_context=ssl_context)
-db = client[os.environ['DB_NAME']]
+# MongoDB config with safe defaults for local/dev environments.
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+db_name = os.environ.get('DB_NAME', 'restaurant_db')
+
+mongo_options = {}
+if mongo_url.startswith('mongodb+srv://'):
+    mongo_options['tls'] = True
+
+if os.environ.get('MONGO_TLS_ALLOW_INVALID', '').lower() in {'1', 'true', 'yes'}:
+    mongo_options['tlsAllowInvalidCertificates'] = True
+
+client = AsyncIOMotorClient(mongo_url, **mongo_options)
+db = client[db_name]
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -375,10 +380,15 @@ async def stripe_webhook(request: Request):
 
 app.include_router(api_router)
 
+cors_origins_raw = os.environ.get('CORS_ORIGINS', '*')
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(',') if origin.strip()]
+allow_all_origins = '*' in cors_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    # Browsers reject credentials with wildcard origins; keep config valid in both modes.
+    allow_credentials=not allow_all_origins,
+    allow_origins=['*'] if allow_all_origins else cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

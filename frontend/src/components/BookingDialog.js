@@ -7,9 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar, Clock, Users, User, Phone, Mail, CreditCard } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { API } from '@/lib/api';
 
 const BookingDialog = ({ open, onClose }) => {
   const [formData, setFormData] = useState({
@@ -207,11 +205,19 @@ Booking ID: ${bookingId}`;
     });
     setStep(1);
     setBookingId(null);
+    setUtrNumber('');
+    setShowUpiDialog(false);
     onClose();
+  };
+
+  const handleDialogOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      handleClose();
+    }
   };
   
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent aria-describedby="booking-dialog-desc" className="bg-forest-light border-2 border-gold text-cream max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl font-serif text-gold tracking-tight">

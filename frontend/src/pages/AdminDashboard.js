@@ -6,9 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Lock, LogOut, Plus, Trash2, Edit, CheckCircle, XCircle, ShoppingBag, Clock, CheckCheck } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { API } from '@/lib/api';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
