@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+import certifi
 import os
 import logging
 import stripe
@@ -18,9 +19,15 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 db_name = os.environ.get('DB_NAME', 'restaurant_db')
 
-mongo_options = {}
-if mongo_url.startswith('mongodb+srv://'):
+mongo_options = {
+    'serverSelectionTimeoutMS': 15000,
+    'connectTimeoutMS': 15000,
+}
+
+# Atlas connections require TLS and a valid CA bundle in many hosted environments.
+if mongo_url.startswith('mongodb+srv://') or 'mongodb.net' in mongo_url:
     mongo_options['tls'] = True
+    mongo_options['tlsCAFile'] = certifi.where()
 
 if os.environ.get('MONGO_TLS_ALLOW_INVALID', '').lower() in {'1', 'true', 'yes'}:
     mongo_options['tlsAllowInvalidCertificates'] = True
@@ -392,6 +399,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def health_root():
+    return {"status": "ok", "service": "restaurant-backend"}
+
+@app.on_event("startup")
+async def startup_db_check():
+    try:
+        await client.admin.command("ping")
+        logger.info("MongoDB connection established")
+    except Exception as exc:
+        logger.exception("MongoDB ping failed on startup: %s", exc)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
