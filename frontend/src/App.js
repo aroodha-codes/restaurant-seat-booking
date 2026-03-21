@@ -5,6 +5,7 @@ import HomePage from '@/pages/HomePage';
 import AdminDashboard from '@/pages/AdminDashboard';
 import PaymentSuccess from '@/pages/PaymentSuccess';
 import { Toaster } from '@/components/ui/sonner';
+import FloatingButton from '@/components/ui/FloatingButton';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/payment-success" element={<PaymentSuccess />} />
       </Routes>
       <Toaster position="top-center" />
+      <FloatingButton />
     </BrowserRouter>
   );
 }
