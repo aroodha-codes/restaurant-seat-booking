@@ -90,7 +90,7 @@ Required backend env vars:
 
 | Variable | Example |
 |---|---|
-| `MONGO_URL` | `mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/restaurant_db?retryWrites=true&w=majority&appName=Cluster0` |
+| `MONGO_URL` | `mongodb+srv://<YOUR_USERNAME>:<YOUR_PASSWORD>@cluster.mongodb.net/?appName=Cluster0` |
 | `DB_NAME` | `restaurant_db` |
 | `CORS_ORIGINS` | `https://lumiere-bistro.netlify.app` |
 | `RESTAURANT_NAME` | `Lumiere Bistro` |
